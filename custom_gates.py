@@ -24,6 +24,7 @@ class CustomNaiveGate_Balance_SMoE(BaseGate):
         self.dense_moe_flag = False
         self.g_blance = g_blance
         self.loss = None
+        self.layerNorm = torch.nn.LayerNorm(d_model, elementwise_affine = True, bias = True)
 
     def set_load_balance(self, gate, gate_top_k_idx):
 
@@ -45,8 +46,8 @@ class CustomNaiveGate_Balance_SMoE(BaseGate):
 
     def forward(self, inp, return_all_scores=False):
 
+        inp = self.layerNorm(inp) 
         gate = self.gate(inp)
-
         if self.dense_moe_flag:
             gate = torch.ones_like(gate)  # average the importance of all experts
             gate_top_k_val, gate_top_k_idx = torch.topk(
@@ -84,7 +85,6 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         )
 
         self.inp_reduction = torch.nn.Linear(d_model, 8, bias=False)
-
     def set_load_balance(self, gate, gate_top_k_idx):
         # gate_top_k_idx (tokens_number, top-k)
         # gate_top_k_val (tokens_number, top-k)
@@ -106,13 +106,10 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         self.loss = loss
 
     def forward(self, inp, return_all_scores=False):
-
+        layerNorm = torch.nn.LayerNorm([inp.shape[0], inp.shape[1]], elementwise_affine = True).to('cuda')
+        inp = layerNorm(inp) 
         reduced_inp = self.inp_reduction(inp)
-        with torch.no_grad():
-            expert_embeddings_norm = self.expert_embeddings.norm(
-                p=2.0, dim=1, keepdim=True
-            )
-            self.expert_embeddings.mul_(1.5 / expert_embeddings_norm)
+        #exit()
 
         gate = self._cosine(reduced_inp, self.expert_embeddings)
         gate = self._make_finite(gate)
@@ -140,7 +137,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
     def _cosine(self, mat1, mat2, eps=1e-4):
         assert mat1.dim() == 2
         assert mat2.dim() == 2
-        # mat1 = F.normalize(mat1, p=2.0, dim=1, eps=eps)
+        mat1 = F.normalize(mat1, p=2.0, dim=1, eps=eps)
         mat2 = F.normalize(mat2.float(), p=2.0, dim=1, eps=eps)
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
 
