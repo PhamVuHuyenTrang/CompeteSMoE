@@ -137,10 +137,8 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         #device = mat1.device
         eps1 = torch.ones_like(mat1) * 0.001
         eps2 = torch.ones_like(mat2) * 0.1
-        mat1 = mat1 + eps1
-        mat2 = mat2 + eps2
-        mat1 = F.normalize(mat1, p=2.0, dim=1, eps=eps)
-        mat2 = F.normalize(mat2.float(), p=2.0, dim=1, eps=eps)
+        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps1)
+        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps2)
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
 
     def _make_finite(self, scores):
@@ -149,6 +147,12 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             # NaNs here can break the assignment algorithm
             scores[~ok] = scores[ok].min()
         return scores
+
+    def _normalize(self, input, p: float = 2.0, dim: int = 1, eps: float = 1e-12, pertube_eps = 1e-4):
+
+        denom = input.norm(p, dim, keepdim=True).clamp_min(eps).expand_as(input) + pertube_eps
+        return input / denom
+
 
 
 class CustomNaiveGate_Balance_StableMoE(BaseGate):
