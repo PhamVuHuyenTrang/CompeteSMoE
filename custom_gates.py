@@ -136,7 +136,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         assert mat2.dim() == 2
         #device = mat1.device
         eps1 = torch.ones_like(mat1) * 0.001
-        eps2 = torch.ones_like(mat2) * 0.1
+        eps2 = torch.ones_like(mat2) * 0.05
         mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps1)
         mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps2)
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
