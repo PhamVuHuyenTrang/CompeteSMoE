@@ -1,7 +1,7 @@
 mkdir -p checkpoints/text8/transformers-l/smoe
 
 args="
---data /home/gtruong/Project/ICML2/data/text8 \
+--data /lustre/scratch/client/vinai/users/trangpvh1/repo/CompteSMoE/pretraining/text8 \
 --base_arch transformer \
 --architecture sgsgsgsgsgsgsgsgsgsgsgsg \
 --gate_name smoe \

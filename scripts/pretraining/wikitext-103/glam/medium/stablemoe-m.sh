@@ -1,7 +1,7 @@
 mkdir -p checkpoints/wikitext-103/glam-m/stablemoe
 
 args="
---data /home/gtruong/Project/ICML2/data/wikitext-103 \
+--data /lustre/scratch/client/vinai/users/trangpvh1/repo/CompteSMoE/pretraining/wikitext-103 \
 --base_arch glam \
 --architecture sgsfsgsfsgsfsgsf \
 --gate_name stablemoe \

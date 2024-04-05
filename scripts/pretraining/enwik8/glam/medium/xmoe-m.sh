@@ -1,7 +1,7 @@
 mkdir -p checkpoints/enwik8/glam-m/xmoe
 
 args="
---data /home/gtruong/Project/ICML2/data/enwik8 \
+--data /lustre/scratch/client/vinai/users/trangpvh1/repo/CompteSMoE/pretraining/enwik8 \
 --base_arch glam \
 --architecture sgsfsgsfsgsfsgsfsgsfsgsfsgsfsgsfsgsfsgsfsgsfsgsf \
 --gate_name xmoe \

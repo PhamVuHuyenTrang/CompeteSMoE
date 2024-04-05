@@ -1,7 +1,7 @@
 mkdir -p checkpoints/wikitext-103/transformers-m/competesmoe
 
 args="
---data /home/gtruong/Project/ICML2/data/wikitext-103 \
+--data /lustre/scratch/client/vinai/users/trangpvh1/repo/CompteSMoE/pretraining/wikitext-103 \
 --base_arch transformer \
 --architecture sgsgsgsgsgsg \
 --gate_name smoe \
