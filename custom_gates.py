@@ -150,7 +150,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
 
     def _normalize(self, input, p: float = 2.0, dim: int = 1, eps: float = 1e-12, pertube_eps = 1e-4):
 
-        denom = input.norm(p, dim, keepdim=True).clamp_min(eps).expand_as(input) + pertube_eps
+        denom = input.norm(p, dim, keepdim=True).expand_as(input) + pertube_eps
         return input / denom
 
 
