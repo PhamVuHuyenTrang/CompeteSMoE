@@ -183,6 +183,7 @@ class Vocab(object):
     ):
         if verbose:
             print("counting file {} ...".format(path))
+        print(path)
         assert os.path.exists(path)
         sents = []
         with open(path, "r", encoding="utf-8") as f:
