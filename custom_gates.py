@@ -164,11 +164,13 @@ class MeanVarMLP(nn.Module):
 
         mean1 = torch.clamp(mean1, min=-0.05, max=0.05)
         mean2 = torch.clamp(mean2, min=-0.05, max=0.05) 
+        var1 = torch.clamp(var1, min=0.01, max=0.1)  
+        var2 = torch.clamp(var2, min=0.01, max=0.1)
 
-        var1 = torch.clamp_min(var1, min=0.01)  
-        var2 = torch.clamp_min(var2, min=0.01) 
-        var1 = torch.clamp_max(var1, max=0.1) 
-        var2 = torch.clamp_max(var2, max=0.1)
+        if torch.isnan(mean1).any() or torch.isnan(var1).any():
+            print("NaN detected in MeanVarMLP forward pass (mean1 or var1)")
+        if torch.isnan(mean2).any() or torch.isnan(var2).any():
+            print("NaN detected in MeanVarMLP forward pass (mean2 or var2)")
 
         return mean1, mean2, var1, var2
 
@@ -212,7 +214,6 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return mu + (eps * std)
-
     def forward(self, inp, return_all_scores=False):
         reduced_inp = self.inp_reduction(inp)
         gate = self._cosine(reduced_inp, self.expert_embeddings)
@@ -234,7 +235,6 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         gate_score = F.softmax(gate_top_k_val, dim=-1)
         if self.g_balance:
             self.set_load_balance(gate, gate_top_k_idx)
-
         if return_all_scores:
             return gate_top_k_idx, gate_score, gate
         return gate_top_k_idx, gate_score
@@ -250,10 +250,9 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             raise ValueError("Infinity found in mean1 or var1")
         if torch.isinf(mean2).any() or torch.isinf(var2).any():
             raise ValueError("Infinity found in mean2 or var2")
-        eps1 = self.reparameterize(mean1, torch.log(var1))
-        eps1 = self.reparameterize(mean1, torch.log(var1))
+        eps1 = self.reparameterize(mean1, torch.log(var1+1e-8))
         eps1 = eps1.expand_as(mat1)
-        eps2 = self.reparameterize(mean2, torch.log(var2))
+        eps2 = self.reparameterize(mean2, torch.log(var2+1e-8))
         eps2 = torch.mean(eps2, dim = 0)
         eps2 = torch.ones_like(mat2) * eps2
         mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps1)
@@ -269,3 +268,4 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
     def _normalize(self, input, p: float = 2.0, dim: int = 1, eps: float = 1e-12):
         denom = input.norm(p, dim, keepdim=True).expand_as(input) + eps
         return input / denom
+
