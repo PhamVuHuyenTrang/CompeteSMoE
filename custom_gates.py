@@ -148,15 +148,29 @@ class CustomNaiveGate_Balance_StableMoE(BaseGate):
 class MeanVarMLP(nn.Module):
     def __init__(self, d_model):
         super(MeanVarMLP, self).__init__()
-        self.mlp = nn.Sequential(
-            nn.Linear(d_model, 64),
-            nn.ReLU(),
-            nn.Linear(64, 4)  # 4 outputs: 2 means and 2 variances
-        )
+        self.linear1 = nn.Linear(d_model, 64)
+        self.relu = nn.ReLU()
+        self.linear2 = nn.Linear(64, 4)
+        self.register_parameter('weight1', self.linear1.weight)
+        self.register_parameter('bias1', self.linear1.bias)
+        self.register_parameter('weight2', self.linear2.weight)
+        self.register_parameter('bias2', self.linear2.bias)
 
     def forward(self, x):
-        return self.mlp(x)
+        x = self.linear1(x)
+        x = self.relu(x)
+        mean_var = self.linear2(x)
+        mean1, var1, mean2, var2 = torch.chunk(mean_var, 4, dim=-1)
 
+        mean1 = torch.clamp(mean1, min=-0.05, max=0.05)
+        mean2 = torch.clamp(mean2, min=-0.05, max=0.05) 
+
+        var1 = torch.clamp_min(var1, min=0.01)  
+        var2 = torch.clamp_min(var2, min=0.01) 
+        var1 = torch.clamp_max(var1, max=0.1) 
+        var2 = torch.clamp_max(var2, max=0.1)
+
+        return mean1, mean2, var1, var2
 
 class CustomNaiveGate_Balance_XMoE(BaseGate):
     def __init__(self, d_model, num_expert, world_size, top_k=2, g_balance=False):
@@ -167,7 +181,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         self.g_balance = g_balance
         self.loss = 0.0
 
-        self.mean_var_mlp = MeanVarMLP(d_model)
+        self.mean_var_mlp = MeanVarMLP(8)
 
         expert_embeddings = torch.empty(num_expert, 8)
         torch.nn.init.orthogonal_(expert_embeddings, gain=0.32)
@@ -194,15 +208,15 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         loss = (fraction_expert * prob_expert).sum() * self.tot_expert
         self.loss = loss
 
+    def reparameterize(self, mu, log_var):
+        std = torch.exp(0.5 * log_var)
+        eps = torch.randn_like(std)
+        return mu + (eps * std)
+
     def forward(self, inp, return_all_scores=False):
-        mean_var = self.mean_var_mlp(inp)
-        mean1, var1, mean2, var2 = torch.chunk(mean_var, 4, dim=-1)  # Split into two pairs of mean and variance
-
-        eps1 = torch.randn_like(mean1) * torch.sqrt(var1) + mean1
-        eps2 = torch.randn_like(mean2) * torch.sqrt(var2) + mean2
-
         reduced_inp = self.inp_reduction(inp)
         gate = self._cosine(reduced_inp, self.expert_embeddings)
+        print("Gate values:", gate)
         gate = self._make_finite(gate)
 
         if self.dense_moe_flag:
@@ -225,9 +239,25 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             return gate_top_k_idx, gate_score, gate
         return gate_top_k_idx, gate_score
 
-    def _cosine(self, mat1, mat2, eps=1e-4):
-        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps)
-        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps)
+    def _cosine(self, mat1, mat2):
+        mean1, var1, mean2, var2 = self.mean_var_mlp(mat1)
+        if torch.isnan(mean1).any() or torch.isnan(var1).any():
+            raise ValueError("NaN found in mean1 or var1")
+        if torch.isnan(mean2).any() or torch.isnan(var2).any():
+            raise ValueError("NaN found in mean2 or var2")
+    
+        if torch.isinf(mean1).any() or torch.isinf(var1).any():
+            raise ValueError("Infinity found in mean1 or var1")
+        if torch.isinf(mean2).any() or torch.isinf(var2).any():
+            raise ValueError("Infinity found in mean2 or var2")
+        eps1 = self.reparameterize(mean1, torch.log(var1))
+        eps1 = self.reparameterize(mean1, torch.log(var1))
+        eps1 = eps1.expand_as(mat1)
+        eps2 = self.reparameterize(mean2, torch.log(var2))
+        eps2 = torch.mean(eps2, dim = 0)
+        eps2 = torch.ones_like(mat2) * eps2
+        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps1)
+        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps2)
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
 
     def _make_finite(self, scores):
