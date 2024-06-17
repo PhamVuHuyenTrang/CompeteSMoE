@@ -240,7 +240,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         return gate_top_k_idx, gate_score
 
     def _cosine(self, mat1, mat2):
-        mean1, var1, mean2, var2 = self.mean_var_mlp(mat1)
+        mean1, mean2, var1, var2 = self.mean_var_mlp(mat1)
         if torch.isnan(mean1).any() or torch.isnan(var1).any():
             raise ValueError("NaN found in mean1 or var1")
         if torch.isnan(mean2).any() or torch.isnan(var2).any():
@@ -262,7 +262,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
     def _make_finite(self, scores):
         ok = scores.isfinite()
         if not ok.all():
-            scores[~ok] = scores[ok].min()
+            scores[~ok] = scores[ok].min(dim = 0)
         return scores
 
     def _normalize(self, input, p: float = 2.0, dim: int = 1, eps: float = 1e-12):
