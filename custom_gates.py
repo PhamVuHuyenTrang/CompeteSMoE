@@ -217,7 +217,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
     def forward(self, inp, return_all_scores=False):
         reduced_inp = self.inp_reduction(inp)
         gate = self._cosine(reduced_inp, self.expert_embeddings)
-        print("Gate values:", gate)
+        #print("Gate values:", gate)
         gate = self._make_finite(gate)
 
         if self.dense_moe_flag:
@@ -257,6 +257,10 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         eps2 = torch.ones_like(mat2) * eps2
         mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps1)
         mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps2)
+        loss_vae_eps1 = -0.5 * torch.sum(1 + torch.log(var1) - mean1.pow(2) - torch.log(var1).exp())
+        loss_vae_eps2 = -0.5 * torch.sum(1 + torch.log(var2) - mean2.pow(2) - torch.log(var2).exp())
+        loss_vae = loss_vae_eps1 + loss_vae_eps2
+        self.loss += loss_vae
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
 
     def _make_finite(self, scores):
