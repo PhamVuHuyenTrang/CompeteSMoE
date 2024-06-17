@@ -250,9 +250,9 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             raise ValueError("Infinity found in mean1 or var1")
         if torch.isinf(mean2).any() or torch.isinf(var2).any():
             raise ValueError("Infinity found in mean2 or var2")
-        eps1 = self.reparameterize(mean1, torch.log(var1+1e-8))
+        eps1 = self.reparameterize(mean1, torch.log(var1))
         eps1 = eps1.expand_as(mat1)
-        eps2 = self.reparameterize(mean2, torch.log(var2+1e-8))
+        eps2 = self.reparameterize(mean2, torch.log(var2))
         eps2 = torch.mean(eps2, dim = 0)
         eps2 = torch.ones_like(mat2) * eps2
         mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps1)
