@@ -131,26 +131,19 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
         if return_all_scores:
             return gate_top_k_idx, gate_score, gate
         return gate_top_k_idx, gate_score
-
-    def _cosine(self, mat1, mat2, eps = 1e-4, pertube_eps = 1e-4):
+        
+    def _cosine(self, mat1, mat2):
         assert mat1.dim() == 2
         assert mat2.dim() == 2
-        #device = mat1.device
-        pertube_eps = torch.ones_like(mat1) * 0.1
-        #print("pertube_eps", pertube_eps)
-        #p_values = np.random.uniform(low=1, high=3)
-        #print("p_values", p_values)
-        dot_product = mat1.float().matmul(mat2.transpose(0, 1))
-        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps, pertube_eps = pertube_eps)
-        #print("mat1", mat1)
-        mat2 = F.normalize(mat2.float(), p=2.0, dim=1, eps=eps)
+        eps1 = torch.ones_like(mat1) * 0.0
+        eps2 = torch.ones_like(mat2) * 0.0
+        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, pertube_eps = eps1)
+        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, pertube_eps = eps2)
         sharpened_cosine = mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
-        p_values = torch.ones_like(sharpened_cosine) * 2.
-        #print("sharpened_cosine", sharpened_cosine)
-        sign = torch.sign(dot_product)
-        cosine_similarity = sign * (sharpened_cosine.abs() ** p_values)
-        #print("cosine_similarity", cosine_similarity)
+        p_values = torch.ones_like(sharpened_cosine) * 2.5
+        cosine_similarity = sharpened_cosine.abs() ** p_values
         return cosine_similarity.type_as(mat1)
+
     def _make_finite(self, scores):
         ok = scores.isfinite()
         if not ok.all():
