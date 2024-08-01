@@ -131,14 +131,14 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             return gate_top_k_idx, gate_score, gate
         return gate_top_k_idx, gate_score
 
-    def _cosine(self, mat1, mat2, eps=1e-4):
+    def _cosine(self, mat1, mat2):
         assert mat1.dim() == 2
         assert mat2.dim() == 2
         #device = mat1.device
         eps1 = torch.ones_like(mat1) * 0.001
         eps2 = torch.ones_like(mat2) * 0.05
-        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps1)
-        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, eps=eps, pertube_eps = eps2)
+        mat1 = self._normalize(mat1.float(), p=2.0, dim=1, pertube_eps = eps1)
+        mat2 = self._normalize(mat2.float(), p=2.0, dim=1, pertube_eps = eps2)
         return mat1.float().matmul(mat2.transpose(0, 1)).type_as(mat1)
 
     def _make_finite(self, scores):
@@ -148,7 +148,7 @@ class CustomNaiveGate_Balance_XMoE(BaseGate):
             scores[~ok] = scores[ok].min()
         return scores
 
-    def _normalize(self, input, p: float = 2.0, dim: int = 1, eps: float = 1e-12, pertube_eps = 1e-4):
+    def _normalize(self, input, p: float = 2.0, dim: int = 1, pertube_eps = 1e-4):
 
         denom = input.norm(p, dim, keepdim=True).expand_as(input) + pertube_eps
         return input / denom
